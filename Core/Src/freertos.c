@@ -115,12 +115,14 @@ void StartAppTask(void *argument)
 {
   /* USER CODE BEGIN StartAppTask */
   /* Infinite loop */
-  
-  for(;;)
-  {
-    app_init();
-    osDelay(1);
-  }
+  // app_init();
+  // xTaskCreate(&keep_connect, "keep_connect", 256, NULL, 2, NULL);
+  // xTaskCreate(&blink, "blink", 256, NULL, 1, NULL);
+  // for(;;)
+  // {
+  //   rclc_executor_spin_some(&executor, RCL_MS_TO_NS(200));
+  //   vTaskDelay(500);
+  // }
   /* USER CODE END StartAppTask */
 }
 
