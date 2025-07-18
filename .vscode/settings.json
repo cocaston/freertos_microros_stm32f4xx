@@ -1,0 +1,9 @@
+{
+    "files.associations": {
+        "config.h": "c",
+        "executor.h": "c",
+        "transport.h": "c",
+        "rmw_microros.h": "c",
+        "error_handling.h": "c"
+    }
+}
