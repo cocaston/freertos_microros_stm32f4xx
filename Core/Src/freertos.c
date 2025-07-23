@@ -20,12 +20,12 @@
 /* Includes ------------------------------------------------------------------*/
 #include "FreeRTOS.h"
 #include "task.h"
-#include "main.h"
+// #include "main.h"
 #include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "app.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -47,20 +47,28 @@
 /* USER CODE BEGIN Variables */
 
 /* USER CODE END Variables */
-/* Definitions for appTask */
-osThreadId_t appTaskHandle;
-const osThreadAttr_t appTask_attributes = {
-  .name = "appTask",
+/* Definitions for defaultTask */
+osThreadId_t defaultTaskHandle;
+const osThreadAttr_t defaultTask_attributes = {
+  .name = "defaultTask",
   .stack_size = 3000 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
+bool cubemx_transport_open(struct uxrCustomTransport * transport);
+bool cubemx_transport_close(struct uxrCustomTransport * transport);
+size_t cubemx_transport_write(struct uxrCustomTransport* transport, const uint8_t * buf, size_t len, uint8_t * err);
+size_t cubemx_transport_read(struct uxrCustomTransport* transport, uint8_t* buf, size_t len, int timeout, uint8_t* err);
 
+void * microros_allocate(size_t size, void * state);
+void microros_deallocate(void * pointer, void * state);
+void * microros_reallocate(void * pointer, size_t size, void * state);
+void * microros_zero_allocate(size_t number_of_elements, size_t size_of_element, void * state);
 /* USER CODE END FunctionPrototypes */
 
-void StartAppTask(void *argument);
+void StartDefaultTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -91,8 +99,8 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* creation of appTask */
-  appTaskHandle = osThreadNew(StartAppTask, NULL, &appTask_attributes);
+  /* creation of defaultTask */
+  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -104,26 +112,43 @@ void MX_FREERTOS_Init(void) {
 
 }
 
-/* USER CODE BEGIN Header_StartAppTask */
+/* USER CODE BEGIN Header_StartDefaultTask */
 /**
-  * @brief  Function implementing the appTask thread.
+  * @brief  Function implementing the defaultTask thread.
   * @param  argument: Not used
   * @retval None
   */
-/* USER CODE END Header_StartAppTask */
-void StartAppTask(void *argument)
+/* USER CODE END Header_StartDefaultTask */
+void StartDefaultTask(void *argument)
 {
-  /* USER CODE BEGIN StartAppTask */
+  /* USER CODE BEGIN StartDefaultTask */
+  app_init();
+  state = WAITING_AGENT;
+  msg.data = 0;
+  rmw_uros_set_custom_transport(
+      true,
+      (void *) &huart1,
+      cubemx_transport_open,
+      cubemx_transport_close,
+      cubemx_transport_write,
+      cubemx_transport_read);
+
+  rcl_allocator_t freeRTOS_allocator = rcutils_get_zero_initialized_allocator();
+  freeRTOS_allocator.allocate = microros_allocate;
+  freeRTOS_allocator.deallocate = microros_deallocate;
+  freeRTOS_allocator.reallocate = microros_reallocate;
+  freeRTOS_allocator.zero_allocate =  microros_zero_allocate;
+
+  if (!rcutils_set_default_allocator(&freeRTOS_allocator)) {
+      printf("Error on default allocators (line %d)\n", __LINE__);
+  }
+  xTaskCreate(&keep_connect, "keep_connect", 500, NULL, 1, NULL);
   /* Infinite loop */
-  // app_init();
-  // xTaskCreate(&keep_connect, "keep_connect", 256, NULL, 2, NULL);
-  // xTaskCreate(&blink, "blink", 256, NULL, 1, NULL);
-  // for(;;)
-  // {
-  //   rclc_executor_spin_some(&executor, RCL_MS_TO_NS(200));
-  //   vTaskDelay(500);
-  // }
-  /* USER CODE END StartAppTask */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END StartDefaultTask */
 }
 
 /* Private application code --------------------------------------------------*/

@@ -1,3 +1,4 @@
+
 cmake_minimum_required(VERSION 3.22)
 
 #
@@ -19,7 +20,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 # Set the project name
-set(CMAKE_PROJECT_NAME freertos_microros_led)
+set(CMAKE_PROJECT_NAME FREERTOS_MicrROS_RECONNECT)
 
 # Include toolchain file
 include("cmake/gcc-arm-none-eabi.cmake")

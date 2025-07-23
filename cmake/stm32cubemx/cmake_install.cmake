@@ -1,4 +1,4 @@
-# Install script for directory: /home/caston/Code/Fun/STM32/freertos_microros_led/cmake/stm32cubemx
+# Install script for directory: /home/caston/Code/Fun/STM32/FREERTOS_MicrROS_RECONNECT/cmake/stm32cubemx
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)

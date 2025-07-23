@@ -4,6 +4,9 @@
         "executor.h": "c",
         "transport.h": "c",
         "rmw_microros.h": "c",
-        "error_handling.h": "c"
+        "error_handling.h": "c",
+        "int32.h": "c",
+        "cmsis_os.h": "c",
+        "app.h": "c"
     }
 }
