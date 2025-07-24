@@ -142,6 +142,7 @@ void StartDefaultTask(void *argument)
       printf("Error on default allocators (line %d)\n", __LINE__);
   }
   xTaskCreate(&keep_connect, "keep_connect", 2048, NULL, 1, NULL);
+  create_entities();
   /* Infinite loop */
   for(;;)
   {

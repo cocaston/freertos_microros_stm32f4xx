@@ -20,7 +20,9 @@ bool create_entities()
     if(micro_ros_context == NULL)
     {
         micro_ros_context = (MicroROSContext*)malloc(sizeof(MicroROSContext));
-
+    }
+    else {
+        destroy_entities();
     }
     
     micro_ros_context->allocator = rcl_get_default_allocator();
@@ -33,38 +35,43 @@ bool create_entities()
 
     // create publisher
     RCCHECK(rclc_publisher_init_best_effort(
-    &micro_ros_context->publisher,
-    &micro_ros_context->node,
-    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32),
-    "std_msgs_msg_Int32"));
+        &micro_ros_context->publisher,
+        &micro_ros_context->node,
+        ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32),
+        "std_msgs_msg_Int32"));
 
     // create timer,
     const unsigned int timer_timeout = 1000;
     RCCHECK(rclc_timer_init_default(
-    &micro_ros_context->timer,
-    &micro_ros_context->support,
-    RCL_MS_TO_NS(timer_timeout),
-    timer_callback));
+        &micro_ros_context->timer,
+        &micro_ros_context->support,
+        RCL_MS_TO_NS(timer_timeout),
+        timer_callback));
 
     // create executor
     micro_ros_context->executor = rclc_executor_get_zero_initialized_executor();
     RCCHECK(rclc_executor_init(
-    &micro_ros_context->executor, 
-    &micro_ros_context->support.context, 
-    1, 
-    &micro_ros_context->allocator));
+        &micro_ros_context->executor,
+        &micro_ros_context->support.context,
+        1,
+        &micro_ros_context->allocator));
+
     RCCHECK(rclc_executor_add_timer(
-    &micro_ros_context->executor, 
-    &micro_ros_context->timer));
+        &micro_ros_context->executor,
+        &micro_ros_context->timer));
 
     return true;
 }
 
 void destroy_entities()
 {
-    HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
-    vTaskDelay(1000);
-    HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+    // for (int i =0; i < 10; i++) {
+    //     HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+    //     vTaskDelay(100);
+    //     HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+    //     vTaskDelay(100);
+    // }
+
     if (micro_ros_context != NULL)
     {
         rmw_context_t* rmw_context = rcl_context_get_rmw_context(&micro_ros_context->support.context);
@@ -81,31 +88,33 @@ void destroy_entities()
     }
 }
 
-void blink()
-{
-    HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, (state == AGENT_CONNECTED) ? GPIO_PIN_RESET : GPIO_PIN_SET);
-}
-
 void keep_connect()
 {
     while(1)
     {
+        // if (rmw_uros_ping_agent(100, 1)) {
+        //     blink();
+        // }
         switch(state)
         {
             case WAITING_AGENT:
-                EXECUTE_EVERY_N_MS(500, state = (RMW_RET_OK == rmw_uros_ping_agent(200, 10)) ? AGENT_AVAILABLE: WAITING_AGENT;);
+                EXECUTE_EVERY_N_MS(500, state = (RMW_RET_OK == rmw_uros_ping_agent(100, 1)) ? AGENT_AVAILABLE: WAITING_AGENT;);
                 break;
             case AGENT_AVAILABLE:
-                state = (true == create_entities()) ? AGENT_AVAILABLE : WAITING_AGENT;
-                if(state == WAITING_AGENT) {
+                state = (true == create_entities()) ? AGENT_CONNECTED : WAITING_AGENT;
+                if (state == WAITING_AGENT) {
                     destroy_entities();
-                };
+                }
                 break;
             case AGENT_CONNECTED:
-                EXECUTE_EVERY_N_MS(200, state = (RMW_RET_OK == rmw_uros_ping_agent(100, 5)) ? AGENT_CONNECTED : AGENT_DISCONNECTED;);
-                if (state == AGENT_CONNECTED) 
-                {
+                if (RMW_RET_OK == rmw_uros_ping_agent(500, 10)) {
+                    state = AGENT_CONNECTED;
                     rclc_executor_spin_some(&micro_ros_context->executor, RCL_MS_TO_NS(100));
+                    HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+                }
+                else {
+                    state = AGENT_DISCONNECTED;
+                    HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
                 }
                 break;
             case AGENT_DISCONNECTED:
@@ -115,8 +124,8 @@ void keep_connect()
             default:
                 break;
         }
-        blink();
-        vTaskDelay(200);
+        // blink();
+        vTaskDelay(500);
     }
 }
 
