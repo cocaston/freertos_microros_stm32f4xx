@@ -123,8 +123,7 @@ void StartDefaultTask(void *argument)
 {
   /* USER CODE BEGIN StartDefaultTask */
   app_init();
-  state = WAITING_AGENT;
-  msg.data = 0;
+
   rmw_uros_set_custom_transport(
       true,
       (void *) &huart1,
@@ -142,7 +141,7 @@ void StartDefaultTask(void *argument)
   if (!rcutils_set_default_allocator(&freeRTOS_allocator)) {
       printf("Error on default allocators (line %d)\n", __LINE__);
   }
-  xTaskCreate(&keep_connect, "keep_connect", 500, NULL, 1, NULL);
+  xTaskCreate(&keep_connect, "keep_connect", 2048, NULL, 1, NULL);
   /* Infinite loop */
   for(;;)
   {

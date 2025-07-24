@@ -19,21 +19,26 @@
   if (uxr_millis() - init > MS) { X; init = uxr_millis();} \
 } while (0)\
 
-extern rclc_support_t support;
-extern rcl_node_t node;
-extern rcl_timer_t timer;
-extern rclc_executor_t executor;
-extern rcl_allocator_t allocator;
-extern rcl_publisher_t publisher;
-extern std_msgs__msg__Int32 msg;
-extern bool micro_ros_init_successful;
+typedef struct{
+  rclc_support_t support;
+  rcl_node_t node;
+  rcl_timer_t timer;
+  rclc_executor_t executor;
+  rcl_allocator_t allocator;
+  rcl_publisher_t publisher;
+} MicroROSContext;
 
-extern enum states{
+enum states{
     WAITING_AGENT,
     AGENT_AVAILABLE,
     AGENT_CONNECTED,
     AGENT_DISCONNECTED
-} state;
+};
+
+extern MicroROSContext* micro_ros_context;
+extern std_msgs__msg__Int32 msg;
+extern bool micro_ros_init_successful;
+extern enum states state;
 
 void app_init();
 void timer_callback(rcl_timer_t *timer, int64_t last_call_time);

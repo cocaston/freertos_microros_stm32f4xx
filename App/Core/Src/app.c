@@ -1,11 +1,6 @@
 #include "app.h"
 
-rclc_support_t support;
-rcl_node_t node;
-rcl_timer_t timer;
-rclc_executor_t executor;
-rcl_allocator_t allocator;
-rcl_publisher_t publisher;
+MicroROSContext* micro_ros_context;
 std_msgs__msg__Int32 msg;
 
 bool micro_ros_init_successful;
@@ -15,50 +10,80 @@ void timer_callback(rcl_timer_t *timer, int64_t last_call_time) {
     (void) last_call_time;
     if (timer != NULL)
     {
-        rcl_publish(&publisher, &msg, NULL);
+        rcl_publish(&micro_ros_context->publisher, &msg, NULL);
         msg.data++;
     }
 }
 
 bool create_entities()
 {
-    allocator = rcl_get_default_allocator();
+    if(micro_ros_context == NULL)
+    {
+        micro_ros_context = (MicroROSContext*)malloc(sizeof(MicroROSContext));
 
-    RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
-    RCCHECK(rclc_node_init_default(&node, "int32_publisher_rclc", "", &support));
+    }
+    
+    micro_ros_context->allocator = rcl_get_default_allocator();
+
+    // create init_options
+    RCCHECK(rclc_support_init(&micro_ros_context->support, 0, NULL, &micro_ros_context->allocator));
+
+    // create node
+    RCCHECK(rclc_node_init_default(&micro_ros_context->node, "int32_publisher_rclc", "", &micro_ros_context->support));
+
+    // create publisher
     RCCHECK(rclc_publisher_init_best_effort(
-        &publisher,
-        &node,
-        ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32),
-        "std_msgs_msg_Int32"
-    ));
+    &micro_ros_context->publisher,
+    &micro_ros_context->node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32),
+    "std_msgs_msg_Int32"));
 
+    // create timer,
     const unsigned int timer_timeout = 1000;
     RCCHECK(rclc_timer_init_default(
-        &timer,
-        &support,
-        RCL_MS_TO_NS(timer_timeout),
-        timer_callback
-    ));
+    &micro_ros_context->timer,
+    &micro_ros_context->support,
+    RCL_MS_TO_NS(timer_timeout),
+    timer_callback));
 
-    executor = rclc_executor_get_zero_initialized_executor();
-    RCCHECK(rclc_executor_init(&executor, &support.context, 1, &allocator));
-    RCCHECK(rclc_executor_add_timer(&executor, &timer));
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_RESET);
+    // create executor
+    micro_ros_context->executor = rclc_executor_get_zero_initialized_executor();
+    RCCHECK(rclc_executor_init(
+    &micro_ros_context->executor, 
+    &micro_ros_context->support.context, 
+    1, 
+    &micro_ros_context->allocator));
+    RCCHECK(rclc_executor_add_timer(
+    &micro_ros_context->executor, 
+    &micro_ros_context->timer));
+
     return true;
 }
 
 void destroy_entities()
 {
-    rmw_context_t* rmw_context = rcl_context_get_rmw_context(&support.context);
-    (void) rmw_uros_set_context_entity_destroy_session_timeout(rmw_context, 0);
+    HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
+    vTaskDelay(1000);
+    HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_SET);
+    if (micro_ros_context != NULL)
+    {
+        rmw_context_t* rmw_context = rcl_context_get_rmw_context(&micro_ros_context->support.context);
+        (void) rmw_uros_set_context_entity_destroy_session_timeout(rmw_context, 0);
 
-    rcl_publisher_fini(&publisher, &node);
-    rcl_timer_fini(&timer);
-    rclc_executor_fini(&executor);
-    rcl_node_fini(&node);
-    rclc_support_fini(&support);
-    HAL_GPIO_WritePin(GPIOA, GPIO_PIN_8, GPIO_PIN_SET);
+        RCCHECK(rcl_publisher_fini(&micro_ros_context->publisher, &micro_ros_context->node));
+        RCCHECK(rcl_timer_fini(&micro_ros_context->timer));
+        RCCHECK(rclc_executor_fini(&micro_ros_context->executor));
+        RCCHECK(rcl_node_fini(&micro_ros_context->node));
+        RCCHECK(rclc_support_fini(&micro_ros_context->support));
+        
+        free(micro_ros_context);
+        micro_ros_context = NULL;  // 避免野指针
+    }
+}
+
+void blink()
+{
+    HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, (state == AGENT_CONNECTED) ? GPIO_PIN_RESET : GPIO_PIN_SET);
 }
 
 void keep_connect()
@@ -68,7 +93,7 @@ void keep_connect()
         switch(state)
         {
             case WAITING_AGENT:
-                EXECUTE_EVERY_N_MS(500, state = (RMW_RET_OK == rmw_uros_ping_agent(100, 1)) ? AGENT_AVAILABLE: WAITING_AGENT;);
+                EXECUTE_EVERY_N_MS(500, state = (RMW_RET_OK == rmw_uros_ping_agent(200, 10)) ? AGENT_AVAILABLE: WAITING_AGENT;);
                 break;
             case AGENT_AVAILABLE:
                 state = (true == create_entities()) ? AGENT_AVAILABLE : WAITING_AGENT;
@@ -77,14 +102,10 @@ void keep_connect()
                 };
                 break;
             case AGENT_CONNECTED:
-                EXECUTE_EVERY_N_MS(200, state = (RMW_RET_OK == rmw_uros_ping_agent(100, 1)) ? AGENT_CONNECTED : AGENT_DISCONNECTED;);
+                EXECUTE_EVERY_N_MS(200, state = (RMW_RET_OK == rmw_uros_ping_agent(100, 5)) ? AGENT_CONNECTED : AGENT_DISCONNECTED;);
                 if (state == AGENT_CONNECTED) 
                 {
-                    for(;;)
-                    {
-                        rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100));
-                        vTaskDelay(500);
-                    }
+                    rclc_executor_spin_some(&micro_ros_context->executor, RCL_MS_TO_NS(100));
                 }
                 break;
             case AGENT_DISCONNECTED:
@@ -94,17 +115,14 @@ void keep_connect()
             default:
                 break;
         }
+        blink();
+        vTaskDelay(200);
     }
 }
 
-// void blink()
-// {
-//     while(1)
-//         HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, (state == AGENT_CONNECTED) ? GPIO_PIN_RESET : GPIO_PIN_SET);
-// }
-
 void app_init(){
-
-
+    micro_ros_context = (MicroROSContext*)malloc(sizeof(MicroROSContext));
+    state = WAITING_AGENT;
+    msg.data = 0;
 }
 
