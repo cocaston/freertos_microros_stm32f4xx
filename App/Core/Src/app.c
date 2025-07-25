@@ -22,13 +22,13 @@ bool create_entities()
     // create init_options
     RCCHECK(rclc_support_init(&micro_ros_context->support, 0, NULL, &micro_ros_context->allocator));
     // create node
-    RCCHECK(rclc_node_init_default(&micro_ros_context->node, "int32_publisher_rclc", "", &micro_ros_context->support));
-    // create publisher
+    RCCHECK(rclc_node_init_default(&micro_ros_context->node, "serial_chassis", "", &micro_ros_context->support));
+    // create publisher , topic "uptime"
     RCCHECK(rclc_publisher_init_best_effort(
         &micro_ros_context->publisher,
         &micro_ros_context->node,
         ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32),
-        "std_msgs_msg_Int32"));
+        "/uptime"));
     // create timer,
     const unsigned int timer_timeout = 1000;
     RCCHECK(rclc_timer_init_default(
@@ -122,4 +122,3 @@ void app_init(){
     state = WAITING_AGENT;
     msg.data = 0;
 }
-
