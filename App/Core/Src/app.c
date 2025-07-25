@@ -17,29 +17,18 @@ void timer_callback(rcl_timer_t *timer, int64_t last_call_time) {
 
 bool create_entities()
 {
-    if(micro_ros_context == NULL)
-    {
-        micro_ros_context = (MicroROSContext*)malloc(sizeof(MicroROSContext));
-    }
-    else {
-        destroy_entities();
-    }
-    
     micro_ros_context->allocator = rcl_get_default_allocator();
 
     // create init_options
     RCCHECK(rclc_support_init(&micro_ros_context->support, 0, NULL, &micro_ros_context->allocator));
-
     // create node
     RCCHECK(rclc_node_init_default(&micro_ros_context->node, "int32_publisher_rclc", "", &micro_ros_context->support));
-
     // create publisher
     RCCHECK(rclc_publisher_init_best_effort(
         &micro_ros_context->publisher,
         &micro_ros_context->node,
         ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32),
         "std_msgs_msg_Int32"));
-
     // create timer,
     const unsigned int timer_timeout = 1000;
     RCCHECK(rclc_timer_init_default(
@@ -47,7 +36,6 @@ bool create_entities()
         &micro_ros_context->support,
         RCL_MS_TO_NS(timer_timeout),
         timer_callback));
-
     // create executor
     micro_ros_context->executor = rclc_executor_get_zero_initialized_executor();
     RCCHECK(rclc_executor_init(
@@ -83,8 +71,8 @@ void destroy_entities()
         RCCHECK(rcl_node_fini(&micro_ros_context->node));
         RCCHECK(rclc_support_fini(&micro_ros_context->support));
         
-        free(micro_ros_context);
-        micro_ros_context = NULL;  // 避免野指针
+        // free(micro_ros_context);
+        // micro_ros_context = NULL;  // 避免野指针
     }
 }
 
@@ -107,7 +95,7 @@ void keep_connect()
                 }
                 break;
             case AGENT_CONNECTED:
-                if (RMW_RET_OK == rmw_uros_ping_agent(500, 10)) {
+                if (RMW_RET_OK == rmw_uros_ping_agent(100, 1)) {
                     state = AGENT_CONNECTED;
                     rclc_executor_spin_some(&micro_ros_context->executor, RCL_MS_TO_NS(100));
                     HAL_GPIO_WritePin(LED_GPIO_Port, LED_Pin, GPIO_PIN_RESET);
@@ -125,7 +113,7 @@ void keep_connect()
                 break;
         }
         // blink();
-        vTaskDelay(500);
+        vTaskDelay(20);
     }
 }
 

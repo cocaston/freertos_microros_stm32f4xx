@@ -141,8 +141,7 @@ void StartDefaultTask(void *argument)
   if (!rcutils_set_default_allocator(&freeRTOS_allocator)) {
       printf("Error on default allocators (line %d)\n", __LINE__);
   }
-  xTaskCreate(&keep_connect, "keep_connect", 2048, NULL, 1, NULL);
-  create_entities();
+  xTaskCreate(&keep_connect, "keep_connect", 1024, NULL, 1, NULL);
   /* Infinite loop */
   for(;;)
   {
